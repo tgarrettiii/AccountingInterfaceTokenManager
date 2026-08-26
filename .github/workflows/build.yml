@@ -1,4 +1,4 @@
-name: .NET Build CI
+name: .NET Build CI 
 
 on:
   push:
