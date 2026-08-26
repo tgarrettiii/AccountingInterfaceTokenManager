@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Explicitly grants the workflow permission to upload NuGet packages to your repository
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
