@@ -16,7 +16,7 @@ def get_next_tag():
 
     # 2. Get the latest tag matching the 'v*' pattern sorted by version order
     # --merged HEAD ensures we only look at tags reachable from this branch
-    latest_tag = run_cmd(['git', 'describe', '--tags', '--abbrev=0', '--match', 'v*', '--merged', 'HEAD'])
+    latest_tag = run_cmd(['git', 'describe', '--tags', '--abbrev=0', '--match', 'v*'])
 
     # Fallback if no tags exist in the repo yet
     if not latest_tag:
