@@ -13,12 +13,12 @@ permissions:
   contents: write
   packages: write
 
-jobs: 
+jobs:
   build:
     # Skips running if the PR was just closed without being merged
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,13 +28,13 @@ jobs:
         id: find-tag
         run: |
           git fetch --tags origin
-          
+
           # Find the closest tag starting with 'v' reachable from HEAD
           # --abbrev=0 strips commit hashes and only returns the tag name
           LATEST_TAG=$(git describe --tags --match="v*" --abbrev=0 HEAD 2>/dev/null || echo "v0.0.0")
-          
+
           echo "Found tag: $LATEST_TAG"
-          
+
           # Save the value to GITHUB_OUTPUT for future steps
           echo "version=$LATEST_TAG" >> "$GITHUB_OUTPUT"
       - name: Setup .NET Core SDK
@@ -49,18 +49,18 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git remote set-branches origin '*'
-          
+
           # Fetch deep history and tags
           git fetch --all --tags --force
-          
+
           # Identify the target branch being built (e.g., main)
           TARGET_REF="${{ github.base_ref || github.ref_name }}"
           git checkout $TARGET_REF
-          
+
           # Isolate tags that legitimately belong to this branch's history
           valid_tags=$(git tag --merged HEAD)
           all_tags=$(git tag)
-          
+
           # Delete foreign tags out of the local runner's memory
           for tag in $all_tags; do
             if ! echo "$valid_tags" | grep -qxF "$tag"; then
