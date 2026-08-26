@@ -3,23 +3,57 @@ name: .NET Build CI
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-# Crucial: Grants the workflow token authority to write packages
+# Grants the workflow native authorization to write packages
 permissions:
+  contents: read
   packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-dotnet@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetches historical tags for versioning
+
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-    - run: dotnet pack -c Release -p:PackageVersion=1.0.0
-    # Fixed push command using the correct API endpoint
-    - run: |
-        dotnet nuget push "./bin/Release/*.nupkg" \
-          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+
+    # Extracts the latest tag or falls back to a default version if no tag exists yet
+    - name: Get Latest Git Tag
+      id: get_version
+      run: |
+        TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+        VERSION=${TAG#v}
+        echo "Extracted version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # Compiles project binaries
+    - name: Build project
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
+
+    # Runs unit validation tests
+    - name: Run Tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+
+    # FIX 1: Forces the .nupkg file to compile straight into a predictable root-level folder
+    - name: Pack NuGet Package
+      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
+
+    # FIX 2: Targets the newly isolated custom folder and bypasses the 410 caching error
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget push "./nupkg/*.nupkg" \
+          --source "https://github.com" \
           --api-key "${{ secrets.GITHUB_TOKEN }}" \
           --skip-duplicate
