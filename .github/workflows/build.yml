@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# Explicitly grants the workflow permission to upload NuGet packages to your repository
+# Explicitly grants the workflow permission to upload NuGet packages
 permissions:
   contents: read
   packages: write
@@ -30,9 +30,7 @@ jobs:
     - name: Get Latest Git Tag
       id: get_version
       run: |
-        # Describe gets the closest tag. If it fails, default to 1.0.0
         TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-        # Strip a leading 'v' if present (e.g., v1.2.3 becomes 1.2.3)
         VERSION=${TAG#v}
         echo "Extracted version: $VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -52,9 +50,15 @@ jobs:
     - name: Pack NuGet Package
       run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
 
-    # Pushes the compiled .nupkg straight to your repository's NuGet Artifactory feed
+    # Registers the feed safely and pushes using the named configuration
     - name: Publish to GitHub Packages
       run: |
+        dotnet nuget add source "https://github.com" \
+          --name "github" \
+          --username "tgarrettiii" \
+          --password "${{ secrets.GITHUB_TOKEN }}" \
+          --store-password-in-clear-text
+
         dotnet nuget push "./nupkg/*.nupkg" \
-          --source "https://github.com" \
-          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --source "github" \
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
