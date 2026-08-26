@@ -27,6 +27,11 @@ jobs:
         dotnet-version: '8.0.x'
 
     # Extracts the latest tag or falls back to a default version if no tag exists yet
+    - name: Sync Target Branch and Tags
+      run: |
+        git fetch origin main:main
+        git fetch --tags --force
+
     - name: Run Tag Incrementor Script
       id: get_version_py
       run: python .scripts/increment_version.py "${{ github.base_ref || github.ref_name }}"
