@@ -29,7 +29,7 @@ jobs:
     # Extracts the latest tag or falls back to a default version if no tag exists yet
     - name: Run Tag Incrementor Script
       id: get_version_py
-      run: .scripts/python increment_tag.py
+      run: python .scripts/increment_tag.py
 
     - name: Get Latest Git Tag
       id: get_version
