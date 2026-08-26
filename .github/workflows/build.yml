@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# Explicitly grants the workflow permission to upload NuGet packages
+# Grants the workflow native authorization to write packages
 permissions:
   contents: read
   packages: write
@@ -19,7 +19,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # CRITICAL: Fetches all tags and history instead of just the latest commit
+        fetch-depth: 0 # Fetches all historical tags for version derivation
 
     - name: Setup .NET Core SDK
       uses: actions/setup-dotnet@v4
@@ -38,27 +38,22 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    # Injects the version dynamically into the MSBuild pipeline
+    # Compiles project binaries
     - name: Build project
       run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
 
-    # Runs validation tests against the release binaries
+    # Runs unit validation tests
     - name: Run Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
-    # Packages the project into a .nupkg file using the dynamic version
+    # Packages the project into a clean .nupkg file
     - name: Pack NuGet Package
       run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
 
-    # Registers the feed safely and pushes using the named configuration
+    # Securely pushes directly to the modern GitHub Packages V3 API endpoint
     - name: Publish to GitHub Packages
       run: |
-        dotnet nuget add source "https://github.com" \
-          --name "github" \
-          --username "tgarrettiii" \
-          --password "${{ secrets.GITHUB_TOKEN }}" \
-          --store-password-in-clear-text
-
         dotnet nuget push "./nupkg/*.nupkg" \
-          --source "github" \
-          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --source "https://github.com" \
+          --api-key "${{ secrets.GITHUB_TOKEN }}" \
+          --skip-duplicate
