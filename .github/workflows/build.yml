@@ -50,10 +50,23 @@ jobs:
     - name: Pack NuGet Package
       run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
 
-    # Securely pushes directly to the modern GitHub Packages V3 API endpoint
+    # Dynamically builds an isolated configuration and uploads to the exact V3 endpoint
     - name: Publish to GitHub Packages
       run: |
-        dotnet nuget push "./nupkg/*.nupkg" \
-          --source "https://github.com" \
-          --api-key "${{ secrets.GITHUB_TOKEN }}" \
-          --skip-duplicate
+        cat <<EOF > nuget.config
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <packageSources>
+            <clear />
+            <add key="github" value="https://github.com" />
+          </packageSources>
+          <packageSourceCredentials>
+            <github>
+              <add key="Username" value="tgarrettiii" />
+              <add key="ClearTextPassword" value="${{ secrets.GITHUB_TOKEN }}" />
+            </github>
+          </packageSourceCredentials>
+        </configuration>
+        EOF
+
+        dotnet nuget push "./nupkg/*.nupkg" --configfile nuget.config --source "github" --skip-duplicate
