@@ -84,6 +84,19 @@ jobs:
       - name: Run Tests
         run: dotnet test --configuration Release --no-build --verbosity normal
 
+      - name: Create and Push New Target Branch Tag
+        run: |
+          CLEAN_VERSION="${{ steps.get_version_py.outputs.VERSION }}"
+          TAG_NAME="v$CLEAN_VERSION"
+
+          echo "Creating tag: $TAG_NAME"
+
+          # Create the local tag
+          git tag "$TAG_NAME"
+
+          # Push the specific tag to the remote repository
+          git push origin "$TAG_NAME"
+
       # FIXED: Updated outputs property to match UPPERCASE 'VERSION'
       - name: Pack NuGet Package
         run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version_py.outputs.VERSION }}
@@ -95,38 +108,3 @@ jobs:
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
-
-  clean-tags:
-    # Wakes up ONLY when a Pull Request is successfully merged
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout target branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.base.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prune tags not belonging to target branch history
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # Fetch all tags from the remote server
-          git fetch --tags
-          
-          # Get a list of tags pointing only to this target branch's history
-          valid_target_tags=$(git tag --merged HEAD)
-          
-          # Get a list of all tags in the entire repository
-          all_tags=$(git tag)
-          
-          # Delete any remote tag that is NOT part of this branch's history
-          for tag in $all_tags; do
-            if ! echo "$valid_target_tags" | grep -qxF "$tag"; then
-              echo "Deleting leaked feature tag from remote: $tag"
-              git push origin --delete "$tag" || true
-            fi
-          done
