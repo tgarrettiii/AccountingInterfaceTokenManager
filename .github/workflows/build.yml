@@ -11,24 +11,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # CRITICAL: Fetches all tags and history instead of just the latest commit
 
-    # 2. Install the specified .NET SDK version on the runner
     - name: Setup .NET Core SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
-    # 3. Restore NuGet packages
+    # Extracts the latest tag or falls back to a default version if no tag exists yet
+    - name: Get Latest Git Tag
+      id: get_version
+      run: |
+        # Describe gets the closest tag. If it fails, default to 1.0.0
+        TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+        # Strip a leading 'v' if present (e.g., v1.2.3 becomes 1.2.3)
+        VERSION=${TAG#v}
+        echo "Extracted version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Restore dependencies
       run: dotnet restore
 
-    # 4. Compile the application in Release mode
+    # Injects the version dynamically into the MSBuild pipeline
     - name: Build project
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
 
-   # 5. New step to execute your unit tests
     - name: Run Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
