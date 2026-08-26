@@ -1,0 +1,30 @@
+name: .NET Build CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Fetch the repository source code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Install the specified .NET SDK version on the runner
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    # 3. Restore NuGet packages
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # 4. Compile the application in Release mode
+    - name: Build project
+      run: dotnet build --configuration Release --no-restore
