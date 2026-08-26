@@ -26,11 +26,13 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # Extracts the latest tag or falls back to a default version if no tag exists yet
+    # FIXED: Reconfigures the tracking branches and pulls deep history for target branches
     - name: Sync Target Branch and Tags
       run: |
-        git fetch origin ${{ github.base_ref || github.ref_name }}
-        git fetch --tags --force
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git remote set-branches origin '*'
+        git fetch --all --tags --force
 
     - name: Run Tag Incrementor Script
       id: get_version_py
@@ -39,19 +41,19 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    # Compiles project binaries
+    # FIXED: Updated outputs property to match UPPERCASE 'VERSION'
     - name: Build project
-      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version_py.outputs.version }}
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version_py.outputs.VERSION }}
 
     # Runs unit validation tests
     - name: Run Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
-    # FIX 1: Forces the .nupkg file to compile straight into a predictable root-level folder
+    # FIXED: Updated outputs property to match UPPERCASE 'VERSION'
     - name: Pack NuGet Package
-      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version_py.outputs.version }}
+      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version_py.outputs.VERSION }}
 
-    # FIX 2: Corrected the endpoint URL to use the designated GitHub NuGet Package Registry endpoint
+    # Targets the newly isolated custom folder and bypasses the 410 caching error
     - name: Publish to GitHub Packages
       run: |
         dotnet nuget push "./nupkg/*.nupkg" \
