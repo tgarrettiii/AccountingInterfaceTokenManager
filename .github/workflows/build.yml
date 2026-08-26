@@ -41,3 +41,9 @@ jobs:
 
     - name: Run Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: token-manager-v${{ steps.get_version.outputs.version }}
+        path: ./publish_output/
