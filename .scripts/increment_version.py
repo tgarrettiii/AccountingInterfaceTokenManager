@@ -16,7 +16,7 @@ def get_next_tag(target_branch):
     # Search local reference first, then fallback to remote tracker
     latest_tag = run_cmd(['git', 'describe', '--tags', '--abbrev=0', '--match', 'v*', '--merged', target_branch])
     if not latest_tag:
-        latest_tag = run_cmd(['git', 'describe', '--tags', '--abbrev=0', '--match', 'v*', '--merged', f'origin/{target_branch}'])
+        latest_tag = run_cmd(['git', 'describe', '--tags', '--abbrev=0', '--match', 'v*'])
 
     # Fallback if no tags exist in that branch's history yet
     if not latest_tag:
