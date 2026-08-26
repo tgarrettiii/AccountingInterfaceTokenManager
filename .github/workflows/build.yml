@@ -13,7 +13,7 @@ permissions:
   contents: write
   packages: write
 
-jobs:
+jobs: 
   build:
     # Skips running if the PR was just closed without being merged
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
