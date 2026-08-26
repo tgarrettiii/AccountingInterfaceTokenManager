@@ -31,18 +31,12 @@ jobs:
       id: get_version_py
       run: python .scripts/increment_version.py
 
-    - name: Get Latest Git Tag
-      id: get_version
-      run: |
-        echo "Extracted version: ${{ steps.get_version_py.outputs.version }}"
-        echo "version=${{ steps.get_version_py.outputs.version }}" >> $GITHUB_OUTPUT
-
     - name: Restore dependencies
       run: dotnet restore
 
     # Compiles project binaries
     - name: Build project
-      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version_py.outputs.version }}
 
     # Runs unit validation tests
     - name: Run Tests
@@ -50,7 +44,7 @@ jobs:
 
     # FIX 1: Forces the .nupkg file to compile straight into a predictable root-level folder
     - name: Pack NuGet Package
-      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
+      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version_py.outputs.version }}
 
     # FIX 2: Corrected the endpoint URL to use the designated GitHub NuGet Package Registry endpoint
     - name: Publish to GitHub Packages
