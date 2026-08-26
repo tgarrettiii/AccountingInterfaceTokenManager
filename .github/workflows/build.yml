@@ -28,3 +28,7 @@ jobs:
     # 4. Compile the application in Release mode
     - name: Build project
       run: dotnet build --configuration Release --no-restore
+
+   # 5. New step to execute your unit tests
+    - name: Run Tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
