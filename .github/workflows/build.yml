@@ -39,14 +39,17 @@ jobs:
     - name: Build project
       run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
 
+    # Runs validation tests against the release binaries
     - name: Run Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
-    - name: Publish App
-      run: dotnet publish --configuration Release --output ./publish_output -p:Version=${{ steps.get_version.outputs.version }}
+    # Packages the project into a .nupkg file using the dynamic version
+    - name: Pack NuGet Package
+      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
 
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: token-manager-v${{ steps.get_version.outputs.version }}
-        path: ./publish_output/
+    # Pushes the compiled .nupkg straight to your repository's NuGet Artifactory feed
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget push "./nupkg/*.nupkg" \
+          --source "https://github.com{{ github.repository_owner }}/index.json" \
+          --api-key ${{ secrets.GITHUB_TOKEN }}
