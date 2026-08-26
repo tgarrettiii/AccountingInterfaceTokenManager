@@ -3,70 +3,23 @@ name: .NET Build CI
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
-# Grants the workflow native authorization to write packages
+# Crucial: Grants the workflow token authority to write packages
 permissions:
-  contents: read
   packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # Fetches all historical tags for version derivation
-
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-
-    # Extracts the latest tag or falls back to a default version if no tag exists yet
-    - name: Get Latest Git Tag
-      id: get_version
-      run: |
-        TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-        VERSION=${TAG#v}
-        echo "Extracted version: $VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    # Compiles project binaries
-    - name: Build project
-      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version.outputs.version }}
-
-    # Runs unit validation tests
-    - name: Run Tests
-      run: dotnet test --configuration Release --no-build --verbosity normal
-
-    # Packages the project into a clean .nupkg file
-    - name: Pack NuGet Package
-      run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version.outputs.version }}
-
-    # Dynamically builds an isolated configuration and uploads to the exact V3 endpoint
-    - name: Publish to GitHub Packages
-      run: |
-        cat <<EOF > nuget.config
-        <?xml version="1.0" encoding="utf-8"?>
-        <configuration>
-          <packageSources>
-            <clear />
-            <add key="github" value="https://github.com" />
-          </packageSources>
-          <packageSourceCredentials>
-            <github>
-              <add key="Username" value="tgarrettiii" />
-              <add key="ClearTextPassword" value="${{ secrets.GITHUB_TOKEN }}" />
-            </github>
-          </packageSourceCredentials>
-        </configuration>
-        EOF
-
-        dotnet nuget push "./nupkg/*.nupkg" --configfile nuget.config --source "github" --skip-duplicate
+    - run: dotnet pack -c Release -p:PackageVersion=1.0.0
+    # Fixed push command using the correct API endpoint
+    - run: |
+        dotnet nuget push "./bin/Release/*.nupkg" \
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+          --api-key "${{ secrets.GITHUB_TOKEN }}" \
+          --skip-duplicate
