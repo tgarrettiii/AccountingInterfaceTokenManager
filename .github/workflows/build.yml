@@ -34,10 +34,8 @@ jobs:
     - name: Get Latest Git Tag
       id: get_version
       run: |
-        TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-        VERSION=${TAG#v}
-        echo "Extracted version: $VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: ${{ steps.get_version_py.outputs.version }}"
+        echo "version=${{ steps.get_version_py.outputs.version }}" >> $GITHUB_OUTPUT
 
     - name: Restore dependencies
       run: dotnet restore

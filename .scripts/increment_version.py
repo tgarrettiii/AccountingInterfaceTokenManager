@@ -51,6 +51,10 @@ if __name__ == "__main__":
     next_ver = get_next_tag()
     print(f"Calculated next version: {next_ver}")
 
-    # Write to GitHub Output so the runner can use this variable in later steps
-    # Running this print statement writes directly into the runner environment
-    print(f"next_version={next_ver} >> $GITHUB_OUTPUT")
+    # Export the variable as 'VERSION' to GitHub Actions environment
+    if "GITHUB_OUTPUT" in os.environ:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"version={next_ver}\n")
+        print("--> [SUCCESS] Successfully exported 'version' to GITHUB_OUTPUT.")
+    else:
+        print("--> [WARNING] GITHUB_OUTPUT environment variable not found. (Not running inside a GitHub Action runner?)")
