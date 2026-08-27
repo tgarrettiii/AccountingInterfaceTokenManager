@@ -1,0 +1,70 @@
+name: Generic Auto Increment Tag
+
+on:
+  push:
+    branches:
+      - '**'        # Triggers on a merge or push to ANY branch
+    tags-ignore:
+      - '**'        # Crucial: Prevents the workflow from triggering itself when pushing the new tag
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Grants permission to create and push tags
+
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history and tags across all branches
+
+      - name: Calculate and Push New Tag
+        run: |
+          # Detect the active target branch dynamically
+          TARGET_BRANCH="${{ github.ref_name }}"
+          echo "Target branch is: $TARGET_BRANCH"
+
+          # 1. Get a list of all commit SHAs on the target branch line only
+          git log --first-parent --format="%H" "origin/$TARGET_BRANCH" > target_commits.txt
+
+          # 2. Find the most recent tag that belongs strictly to this target branch line
+          LATEST_TARGET_TAG=""
+          
+          for tag in $(git tag --sort=-creatordate); do
+            TAG_SHA=$(git rev-list -n 1 "$tag")
+            
+            if grep -q "$TAG_SHA" target_commits.txt; then
+              LATEST_TARGET_TAG="$tag"
+              break
+            fi
+          done
+
+          # 3. Fallback if no tags exist on this branch line yet
+          if [ -z "$LATEST_TARGET_TAG" ]; then
+            echo "No previous tags found on $TARGET_BRANCH line history. Starting at v1.0.0"
+            LATEST_TARGET_TAG="v1.0.0"
+          else
+            echo "Latest tag on $TARGET_BRANCH branch line is: $LATEST_TARGET_TAG"
+          fi
+
+          # 4. Parse the semantic version (stripping the 'v' prefix if present)
+          VERSION=${LATEST_TARGET_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # 5. Increment the patch version
+          NEW_PATCH=$((PATCH + 1))
+          
+          # Maintain the 'v' prefix if the original tag had it
+          if [[ "$LATEST_TARGET_TAG" == v* ]]; then
+            NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
+          else
+            NEW_TAG="$MAJOR.$MINOR.$NEW_PATCH"
+          fi
+          echo "New calculated tag: $NEW_TAG"
+
+          # 6. Configure git identity, create, and push the new tag
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@://github.com"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
