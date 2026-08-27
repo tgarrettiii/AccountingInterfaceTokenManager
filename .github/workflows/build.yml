@@ -1,6 +1,6 @@
 name: Generic Auto Increment Tag
 
-on:
+on: 
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
