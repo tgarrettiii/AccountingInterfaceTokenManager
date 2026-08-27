@@ -1,6 +1,6 @@
 name: Generic Auto Increment Tag
 
-on:
+on: 
   push:
     branches:
       - '**'        # Triggers on a merge or push to ANY branch
