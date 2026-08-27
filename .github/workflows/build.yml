@@ -1,39 +1,54 @@
 name: Generic Auto Increment Tag
 
-on: 
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - '**'
   push:
     branches:
-      - '**'        # Triggers on a merge or push to ANY branch
+      - '**'
     tags-ignore:
-      - '**'        # Crucial: Prevents the workflow from triggering itself when pushing the new tag
+      - '**'
 
 jobs:
   bump-version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Grants permission to create and push tags
-
+      contents: write 
     steps:
+      - name: Determine Target Branch
+        id: target
+        run: |
+          # If it's a PR, target is the base branch. If it's a direct push, target is the active branch.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "BRANCH=${{ github.event.pull_request.base.ref }}" >> "$GITHUB_ENV"
+          else
+            echo "BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          fi
+
+      # We check out the determined target branch explicitly
       - name: Checkout repository with full history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetches all history and tags across all branches
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0 
 
       - name: Calculate and Push New Tag
         run: |
-          # Detect the active target branch dynamically
-          TARGET_BRANCH="${{ github.ref_name }}"
+          git fetch --tags origin
+
+          # Use the target branch we determined in step 1
+          TARGET_BRANCH="${{ env.BRANCH }}"
           echo "Target branch is: $TARGET_BRANCH"
 
-          # 1. Get a list of all commit SHAs on the target branch line only
+          # 1. Get all commit SHAs on the target branch line
           git log --first-parent --format="%H" "origin/$TARGET_BRANCH" > target_commits.txt
 
-          # 2. Find the most recent tag that belongs strictly to this target branch line
+          # 2. Find the most recent tag starting with 'v' belonging to this target branch line
           LATEST_TARGET_TAG=""
-          
-          for tag in $(git tag --sort=-creatordate); do
+          for tag in $(git tag --sort=-creatordate --list "v*"); do
             TAG_SHA=$(git rev-list -n 1 "$tag")
-            
             if grep -q "$TAG_SHA" target_commits.txt; then
               LATEST_TARGET_TAG="$tag"
               break
@@ -48,19 +63,13 @@ jobs:
             echo "Latest tag on $TARGET_BRANCH branch line is: $LATEST_TARGET_TAG"
           fi
 
-          # 4. Parse the semantic version (stripping the 'v' prefix if present)
+          # 4. Parse the semantic version
           VERSION=${LATEST_TARGET_TAG#v}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
           # 5. Increment the patch version
           NEW_PATCH=$((PATCH + 1))
-          
-          # Maintain the 'v' prefix if the original tag had it
-          if [[ "$LATEST_TARGET_TAG" == v* ]]; then
-            NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
-          else
-            NEW_TAG="$MAJOR.$MINOR.$NEW_PATCH"
-          fi
+          NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
           echo "New calculated tag: $NEW_TAG"
 
           # 6. Configure git identity, create, and push the new tag
