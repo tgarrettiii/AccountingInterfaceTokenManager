@@ -10,6 +10,10 @@ on:
       - '**'
     tags-ignore:
       - '**'
+# This cancels duplicate builds on the exact same branch reference
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   bump-version:
