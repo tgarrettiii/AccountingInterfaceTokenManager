@@ -1,0 +1,110 @@
+name: .NET Build CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    # Catches when a PR opens, updates, or merges
+    types: [ opened, synchronize, reopened, closed ]
+
+# Grants write permission to delete remote tags and publish packages
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    # Skips running if the PR was just closed without being merged
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches historical tags for versioning
+      - name: Find latest tag matching v*
+        id: find-tag
+        run: |
+          git fetch --tags origin
+
+          # Find the closest tag starting with 'v' reachable from HEAD
+          # --abbrev=0 strips commit hashes and only returns the tag name
+          LATEST_TAG=$(git describe --tags --match="v*" --abbrev=0 HEAD 2>/dev/null || echo "v0.0.0")
+
+          echo "Found tag: $LATEST_TAG"
+
+          # Save the value to GITHUB_OUTPUT for future steps
+          echo "version=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # FIXED: Fetches history but forces the runner to delete foreign/inbound tags locally
+      # This ensures the python script only evaluates version labels belonging to the target branch
+      - name: Sync Target Branch and Clean Local Tags
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-branches origin '*'
+
+          # Fetch deep history and tags
+          git fetch --all --tags --force
+
+          # Identify the target branch being built (e.g., main)
+          TARGET_REF="${{ github.base_ref || github.ref_name }}"
+          git checkout $TARGET_REF
+
+          # Isolate tags that legitimately belong to this branch's history
+          valid_tags=$(git tag --merged HEAD)
+          all_tags=$(git tag)
+
+          # Delete foreign tags out of the local runner's memory
+          for tag in $all_tags; do
+            if ! echo "$valid_tags" | grep -qxF "$tag"; then
+              echo "Dropping inbound/foreign tag from local runner: $tag"
+              git tag -d "$tag"
+            fi
+          done
+
+      - name: Run Tag Incrementor Script
+        id: get_version_py
+        run: python .scripts/increment_version.py "${{ github.base_ref || github.ref_name }}"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # FIXED: Updated outputs property to match UPPERCASE 'VERSION'
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.get_version_py.outputs.VERSION }}
+
+      # Runs unit validation tests
+      - name: Run Tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Create and Push New Target Branch Tag
+        run: |
+          CLEAN_VERSION="${{ steps.get_version_py.outputs.VERSION }}"
+          TAG_NAME="v$CLEAN_VERSION"
+
+          echo "Creating tag: $TAG_NAME"
+
+          # Create the local tag
+          git tag "$TAG_NAME"
+
+          # Push the specific tag to the remote repository
+          git push origin "$TAG_NAME"
+
+      # FIXED: Updated outputs property to match UPPERCASE 'VERSION'
+      - name: Pack NuGet Package
+        run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.get_version_py.outputs.VERSION }}
+
+      # Targets the newly isolated custom folder and bypasses the 410 caching error
+      - name: Publish to GitHub Packages
+        run: |
+          dotnet nuget push "./nupkg/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
