@@ -2,58 +2,52 @@ next-version: 8.0.0
 mode: ContinuousDelivery
 tag-prefix: '[vV]'
 
-# Strategies for commit-message based version bumping (+semver: major)
 major-version-bump-message: '\+semver:\s*(breaking|major)'
 minor-version-bump-message: '\+semver:\s*(feature|minor)'
 patch-version-bump-message: '\+semver:\s*(fix|patch)'
 no-bump-message: '\+semver:\s*(none|skip)'
 
 branches:
-  # 1. Main branch holds final, untagged production numbers (e.g., 2.1.0)
   main:
     regex: ^master$|^main$
     mode: Mainline
-    tag: ''
+    label: ''
     increment: Patch
     prevent-increment-of-merged-branch-version: true
     is-mainline: true
     is-release-branch: false
 
-  # 2. Develop increments minor by default for feature additions (e.g., 2.2.0-alpha.1)
   develop:
     regex: ^dev$|^develop$
     mode: ContinuousDeployment
-    tag: alpha
+    label: alpha
     increment: Minor
     prevent-increment-of-merged-branch-version: false
     is-mainline: false
     is-release-branch: false
 
-  # 3. Release branches preserve versions and use pre-release tags (e.g., 1.1.1-beta.1)
   release:
     regex: ^releases?[/-]
     mode: ContinuousDelivery
-    tag: beta
+    label: beta
     increment: None
     prevent-increment-of-merged-branch-version: true
     is-mainline: false
     is-release-branch: true
 
-  # 4. Standard developer feature branches
   feature:
     regex: ^features?[/-]
     mode: ContinuousDelivery
-    tag: useBranchName
+    label: useBranchName
     increment: Minor
     prevent-increment-of-merged-branch-version: false
     is-mainline: false
     is-release-branch: false
 
-  # 5. Pull Requests
   pull-request:
     regex: ^pull[-/]\d+
     mode: ContinuousDelivery
-    tag: Pr
+    label: Pr
     increment: Inherit
     prevent-increment-of-merged-branch-version: false
     is-mainline: false

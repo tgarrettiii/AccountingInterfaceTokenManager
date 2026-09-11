@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. FIX: Prevent LibGit2Sharp from crashing on directory ownership
+      # 2. Prevent LibGit2Sharp from crashing on directory ownership
       - name: Configure Git Safe Directory
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -31,14 +31,14 @@ jobs:
 
       # 4. Install GitVersion
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3
+        uses: gittools/actions/gitversion/setup@v4
         with:
           versionSpec: '6.x'
 
       # 5. Run GitVersion
       - name: Determine Version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v3
+        uses: gittools/actions/gitversion/execute@v4
         with:
           useConfigFile: true 
 
@@ -55,7 +55,7 @@ jobs:
       - name: Pack NuGet Package
         run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.gitversion.outputs.semVer }}
 
-      # 7. Publish Action
+      # 7. Publish Action (FIXED: Corrected url string slash interpolation)
       - name: Publish to GitHub Packages
         run: |
           dotnet nuget push "./nupkg/*.nupkg" \
