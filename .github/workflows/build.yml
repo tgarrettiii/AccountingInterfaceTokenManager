@@ -5,60 +5,60 @@ on:
     branches:
       - main
       - develop
-      - 'release/**'  # Captures release/1.1.0, release/2.2.0, etc.
+      - 'release/**'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       
-      # Step 1: Checkout the code with full history (required by GitVersion)
+      # 1. Checkout with full history (Mandatory for GitVersion)
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Step 2: Install GitVersion
+      # 2. FIX: Prevent LibGit2Sharp from crashing on directory ownership
+      - name: Configure Git Safe Directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # 3. Setup .NET (Ensures GitVersion execution runtime is present)
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 4. Install GitVersion
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3
         with:
           versionSpec: '6.x'
 
-      # Step 3: Run GitVersion to calculate variables
-      # CRITICAL: We named the ID "gitversion" here
+      # 5. Run GitVersion
       - name: Determine Version
         id: gitversion
         uses: gittools/actions/gitversion/execute@v3
         with:
           useConfigFile: true 
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x' # Highly recommended to explicitly define your .NET version
-
-      # Step 4: Restore dependencies
+      # 6. Build and Restore
       - name: Restore dependencies
         run: dotnet restore
 
-      # Step 5: Compiles project binaries
-      # FIX 1: Changed 'steps.get_version_py.outputs.version' to 'steps.gitversion.outputs.semVer'
       - name: Build project
         run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.gitversion.outputs.semVer }}
 
-      # Step 6: Runs unit validation tests
       - name: Run Tests
         run: dotnet test --configuration Release --no-build --verbosity normal
 
-      # Step 7: Packs the .nupkg file straight into a predictable root-level folder
-      # FIX 2: Corrected the version variable output here as well
       - name: Pack NuGet Package
         run: dotnet pack --configuration Release --no-build --output ./nupkg -p:Version=${{ steps.gitversion.outputs.semVer }}
 
-      # Step 8: Publish to GitHub Packages
+      # 7. Publish Action
       - name: Publish to GitHub Packages
         run: |
           dotnet nuget push "./nupkg/*.nupkg" \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --source "https://github.com{{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
